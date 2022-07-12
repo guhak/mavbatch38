@@ -1,0 +1,155 @@
+Assignment 1: ReplicaSet
+
+1. Differences file-wise between kubia-rc.yaml (/root/kubernetes-training/04-controllers) and the kubia-replicaset.yaml (/root/kubernetes-training/05-services).
+
+[root@ip-172-31-31-54 04-controllers]# cat kubia-rc.yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: kubia2
+spec:
+  replicas: 3
+  selector:
+    app: kubia
+  template:
+    metadata:
+      labels:
+        app: kubia
+    spec:
+      containers:
+      - name: kubia
+        image: luksa/kubia
+        ports:
+        - containerPort: 8080
+
+[root@ip-172-31-31-54 05-services]# cat kubia-replicaset.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: kubia
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kubia
+  template:
+    metadata:
+      labels:
+        app: kubia
+    spec:
+      containers:
+      - name: kubia
+        image: luksa/kubia
+
+-> kubia-rc.yaml is of kind "ReplicationController" where as kubia-replicaset.yaml is of kind "ReplicaSet"
+-> apiVersion of kubia-rc.yaml is v1, in kubia-replicaset.yaml the apiVersion is apps/v1 
+-> matchLabels is present in kubia-replicaset.yaml where as in kubia-rc.yaml matchLabels is not present 
+-> In kubia-rc.yaml containerPort: 8080 is mentioned, in kubia-replicaset.yaml containerPort: isn't present
+
+
+2. Run the kubia-replicaset.yaml .
+
+[root@ip-172-31-31-54 05-services]# kubectl create -f kubia-replicaset.yaml
+replicaset.apps/kubia created
+
+
+3. Identify what commands can be run after "kubectl apply...."
+
+#hitting tab key 
+[root@ip-172-31-31-54 05-services]# kubectl apply
+external-service-endpoints.yaml            kubia-rc-readinessprobe.yaml               kubia-svc-nodeport.yaml
+external-service-externalname.yaml         kubia-replicaset.yaml                      kubia-svc-publish-not-ready.yaml
+external-service.yaml                      kubia-svc-client-ip-session-affinity.yaml  kubia-svc.yaml
+ingress/                                   kubia-svc-headless.yaml                    tls.cert
+kubia-ingress-tls.yaml                     kubia-svc-loadbalancer.yaml                tls.key
+kubia-ingress.yaml                         kubia-svc-named-ports.yaml
+kubia-pod.yml                              kubia-svc-nodeport-onlylocal.yaml
+
+4. Make a service over these pods (kubia-replicaset) and see if the service picks up the web-service within the pod ("You have hit....." message)
+
+[root@ip-172-31-31-54 05-services]# cat kubia-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubia2
+spec:
+  clusterIP: 10.99.10.99
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: kubia
+
+[root@ip-172-31-31-54 05-services]# kubectl apply -f kubia-svc.yaml
+service/kubia2 created
+
+[root@ip-172-31-31-54 05-services]# kubectl get svc
+NAME         TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   2d5h
+kubia2       ClusterIP   10.99.10.99   <none>        80/TCP    15s
+
+[root@ip-172-31-31-54 05-services]# kubectl get pods -o wide
+NAME                                               READY   STATUS      RESTARTS   AGE    IP              NODE                                               NOMINATED NODE   READINESS GATES
+batch-job-every-fifteen-minutes-1657005300-rdr9h   0/1     Completed   0          37m    192.168.97.40   ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+batch-job-every-fifteen-minutes-1657006200-tj7g2   0/1     Completed   0          22m    192.168.97.41   ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+batch-job-every-fifteen-minutes-1657007100-9pj8h   0/1     Completed   0          8m6s   192.168.97.42   ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-8cj82                                        1/1     Running     0          38h    192.168.97.5    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-g7lrj                                        1/1     Running     0          38h    192.168.97.4    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-rdv85                                        1/1     Running     0          37h    192.168.97.6    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-tj8q8                                        1/1     Running     0          38h    192.168.97.3    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+
+[root@ip-172-31-31-54 05-services]# kubectl get rs
+NAME    DESIRED   CURRENT   READY   AGE
+kubia   3         3         3       38h
+
+
+[root@ip-172-31-31-54 05-services]# curl 10.99.10.99:80
+You've hit kubia-tj8q8
+[root@ip-172-31-31-54 05-services]# curl 10.99.10.99:80
+You've hit kubia-g7lrj
+[root@ip-172-31-31-54 05-services]# curl 10.99.10.99:80
+You've hit kubia-8cj82
+[root@ip-172-31-31-54 05-services]#
+
+5. Negative Testing : change the labels of the pod and see if the service is still applied on those pods
+
+[root@ip-172-31-31-54 03-Pods]# kubectl label pods kubia-g7lrj app=sql --overwrite
+pod/kubia-g7lrj labeled
+
+[root@ip-172-31-31-54 03-Pods]# kubectl get pods -o wide
+NAME                                               READY   STATUS      RESTARTS   AGE   IP              NODE                                               NOMINATED NODE   READINESS GATES
+batch-job-every-fifteen-minutes-1657005300-rdr9h   0/1     Completed   0          40m   192.168.97.40   ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+batch-job-every-fifteen-minutes-1657006200-tj7g2   0/1     Completed   0          25m   192.168.97.41   ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+batch-job-every-fifteen-minutes-1657007100-9pj8h   0/1     Completed   0          10m   192.168.97.42   ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-8cj82                                        1/1     Running     0          38h   192.168.97.5    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-g7lrj                                        1/1     Running     0          38h   192.168.97.4    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-rdv85                                        1/1     Running     0          37h   192.168.97.6    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+kubia-tj8q8                                        1/1     Running     0          38h   192.168.97.3    ip-172-31-27-219.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-31-54 03-Pods]#
+
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-rdv85
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-8cj82
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-8cj82
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-tj8q8
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-rdv85
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-rdv85
+[root@ip-172-31-31-54 03-Pods]#
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-tj8q8
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-tj8q8
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-8cj82
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-rdv85
+[root@ip-172-31-31-54 03-Pods]# curl 10.99.10.99:80
+You've hit kubia-rdv85
+[root@ip-172-31-31-54 03-Pods]#
+
+
