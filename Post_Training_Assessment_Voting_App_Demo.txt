@@ -1,0 +1,35 @@
+Voting App Demo
+
+1. go to root (cd /root/ ) . (both Master and Worker can perform this in their instances)
+
+sudo su -
+cd /root
+
+2. git clone https://github.com/ashishrpandey/example-voting-app
+
+git clone https://github.com/ashishrpandey/example-voting-app
+
+3. go to /root/example-voting-app/k8s-specifications
+
+cd /root/example-voting-app/k8s-specifications
+
+4. [root@ip-172-31-7-102 k8s-specifications]# kubectl apply -f .
+
+kubectl apply -f 
+
+
+5. for voting and result pods, Observe that NodePort is assigned.
+
+cat vote-service.yaml
+
+cat result-service.yaml
+
+6. take your publicIP (your instance IP) : NodePort ► open 2 browsers , one for VOTING and one for Results.
+
+7 try voting and see the results paralelly in results page.
+
+8. Now try to delete the Pods one by one (first voting Pod, then worker pod, then db pod) and see what happens to the voting and result app after deleting.
+
+kubectl get pods
+
+kubectl delete pod <pod-name>

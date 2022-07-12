@@ -1,0 +1,9 @@
+Deployment
+
+Suppose you have deployed your application using a deployment controller. Assume the initial number of replicas is one. Write the steps needed to update a container's image using deployment, making sure that there is zero downtime.
+
+It has to be configured by setting the pod having a grace period  and set the "magePullPolicy": Always and apply kubectl delete pod <pod-name>. After that a new container will come up, then the latest image will be downloaded automatically, at last the old container will be terminated. 
+
+kubectl set image deployment nginx nginx=nginx:1.9.1
+
+The kubectl set image command updates the nginx image of the Deployment's Pods one at a time.
